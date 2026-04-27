@@ -1,8 +1,9 @@
 streamlit
-numpy==1.26.4
-pandas
 torch
-ultralytics
+torchvision
+numpy==1.26.4
+pillow
 matplotlib
+scikit-learn
 huggingface_hub==0.24.6
 opencv-python-headless==4.8.1.78
