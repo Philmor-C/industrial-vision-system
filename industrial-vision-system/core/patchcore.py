@@ -5,8 +5,8 @@ from huggingface_hub import hf_hub_download
 
 
 model_path = hf_hub_download(
-    repo_id="yourname/patchcore-industrial",
-    filename="patchcore_demo.pth"
+    repo_id="filiyo/patchcore",
+    filename="patchcore.pth"    
 )
 # Load checkpoint
 checkpoint = torch.load(model_path, map_location="cpu")
