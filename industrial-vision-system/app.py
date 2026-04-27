@@ -12,7 +12,7 @@ st.set_page_config(layout="wide")
 st.title("🏭 Industrial Vision System")
 
 # -------------------
-# LOAD MODELS (cached)
+# LOAD MODELS
 # -------------------
 @st.cache_resource
 def load_models():
@@ -40,12 +40,25 @@ speed = st.sidebar.slider("Speed", 1, 20, 5)
 zone = st.sidebar.slider("Zone", 100, 400, 250)
 
 # -------------------
-# KPI
+# KPI (SAFE)
 # -------------------
 total = len(st.session_state.items)
-processed = sum(1 for i in st.session_state.items if i.result)
-unknown = sum(len(i.result["unknown"]) for i in st.session_state.items if i.result)
-passed = sum(1 for i in st.session_state.items if i.result and len(i.result["unknown"]) == 0)
+
+processed = sum(
+    1 for i in st.session_state.items
+    if isinstance(i.result, dict)
+)
+
+unknown = sum(
+    len(i.result.get("unknown", []))
+    for i in st.session_state.items
+    if isinstance(i.result, dict)
+)
+
+passed = sum(
+    1 for i in st.session_state.items
+    if isinstance(i.result, dict) and len(i.result.get("unknown", [])) == 0
+)
 
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Total", total)
@@ -75,12 +88,17 @@ with center:
     for item in st.session_state.items:
 
         if check_trigger(item, zone) and item.result is None:
-            item.result = run_pipeline(item.image, yolo_model, None, memory_bank)
+            item.result = run_pipeline(
+                item.image,
+                yolo_model,
+                memory_bank,
+                threshold
+            )
 
         color = "blue"
 
-        if item.result:
-            if len(item.result["unknown"]) > 0:
+        if isinstance(item.result, dict):
+            if len(item.result.get("unknown", [])) > 0:
                 color = "red"
             else:
                 color = "green"
@@ -98,7 +116,7 @@ st.subheader("Inspection Log")
 log = []
 
 for i in st.session_state.items:
-    if i.result:
+    if isinstance(i.result, dict):
         log.append({
             "ID": i.idx,
             "YOLO": len(i.result["yolo"]),
