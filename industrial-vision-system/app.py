@@ -7,6 +7,7 @@ from core.pipeline import run_pipeline
 from simulation.conveyor import ConveyorItem, encoder_move, check_trigger
 from core.yolo import load_yolo
 from core.patchcore import load_patchcore
+from pathlib import Path
 
 st.set_page_config(layout="wide")
 st.title("🏭 Industrial Vision System")
@@ -29,18 +30,25 @@ yolo_model, backbone, memory_bank, threshold = load_models()
 # -------------------
 # IMAGES
 # -------------------
-images = glob.glob("data/test_images/*.jpg")
 
-if len(images) == 0:
-    st.error("No images found in data/test_images")
+BASE_DIR = Path(__file__).resolve().parent
+IMG_DIR = BASE_DIR / "data" / "test_images"
+
+images = sorted(list(IMG_DIR.glob("*.jpg")))  # 🔥 stable order
+
+if not images:
+    st.error(f"No images found in: {IMG_DIR}")
     st.stop()
 
+# -------------------
+# INIT STATE
+# -------------------
 if "items" not in st.session_state:
     st.session_state.items = [
         ConveyorItem(i, Image.open(img).convert("RGB"))
         for i, img in enumerate(images)
     ]
-
+    
 # -------------------
 # CONTROLS
 # -------------------
