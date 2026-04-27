@@ -7,6 +7,8 @@ from core.pipeline import run_pipeline
 from simulation.conveyor import ConveyorItem, encoder_move, check_trigger
 from core.yolo import load_yolo
 from core.patchcore import load_patchcore
+import os
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 st.set_page_config(layout="wide")
 st.title("🏭 Industrial Vision System")
