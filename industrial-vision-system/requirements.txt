@@ -5,3 +5,4 @@ pandas
 torch
 ultralytics
 matplotlib
+huggingface_hub
