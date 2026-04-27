@@ -1,10 +1,6 @@
-import numpy as np
-
 def measure(image):
 
-    # placeholder industrial measurement logic
-
-    h, w = image.size if hasattr(image, "size") else (224,224)
+    w, h = image.size
 
     return {
         "width_mm": w * 0.1,
