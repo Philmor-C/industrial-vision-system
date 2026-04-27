@@ -1,9 +1,11 @@
-import cv2
 import numpy as np
+import cv2
 
-def heatmap_to_boxes(heatmap, threshold=0.6):
+def heatmap_to_boxes(heatmap, threshold=0.5):
 
-    binary = (heatmap > threshold).astype(np.uint8)
+    heatmap = (heatmap * 255).astype("uint8")
+
+    _, binary = cv2.threshold(heatmap, int(threshold*255), 255, cv2.THRESH_BINARY)
 
     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -11,7 +13,6 @@ def heatmap_to_boxes(heatmap, threshold=0.6):
 
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
-        score = float(np.mean(heatmap[y:y+h, x:x+w]))
-        boxes.append((x, y, w, h, score))
+        boxes.append((x, y, x+w, y+h))
 
     return boxes
