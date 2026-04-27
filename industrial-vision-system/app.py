@@ -1,39 +1,33 @@
 import streamlit as st
-import cv2
 import glob
 import matplotlib.pyplot as plt
+from PIL import Image
 
 from core.pipeline import run_pipeline
 from simulation.conveyor import ConveyorItem, encoder_move, check_trigger
-
 
 # =========================
 # PAGE CONFIG
 # =========================
 st.set_page_config(layout="wide")
-
 st.title("🏭 Industrial Vision System Dashboard")
 
-
 # =========================
-# LOAD DATA
+# LOAD DATA (SAFE - NO cv2)
 # =========================
 images = glob.glob("data/test_images/*.jpg")
-
 
 # =========================
 # INIT STATE
 # =========================
 if "items" not in st.session_state:
-
     st.session_state.items = [
-        ConveyorItem(i, cv2.imread(img))
+        ConveyorItem(i, Image.open(img).convert("RGB"))
         for i, img in enumerate(images)
     ]
 
-
 # =========================
-# SIDEBAR (CONTROL PANEL)
+# SIDEBAR CONTROL PANEL
 # =========================
 st.sidebar.header("⚙️ Control Panel")
 
@@ -44,15 +38,16 @@ mode = st.sidebar.selectbox(
 
 speed = st.sidebar.slider("Conveyor Speed", 1, 20, 5)
 zone = st.sidebar.slider("Inspection Zone", 100, 400, 250)
-
-threshold = st.sidebar.slider("Anomaly Sensitivity", 0.3, 0.9, 0.6)
-
+threshold_ui = st.sidebar.slider("Anomaly Sensitivity", 0.3, 0.9, 0.6)
 
 # =========================
-# KPI CALCULATIONS
+# KPI CALCULATION (SAFE)
 # =========================
 total = len(st.session_state.items)
-processed = sum(1 for i in st.session_state.items if i.result)
+
+processed = sum(
+    1 for i in st.session_state.items if i.result is not None
+)
 
 unknown = sum(
     len(i.result["unknown"])
@@ -65,9 +60,8 @@ passed = sum(
     if i.result and len(i.result["unknown"]) == 0
 )
 
-
 # =========================
-# TOP KPI BAR
+# KPI BAR
 # =========================
 col1, col2, col3, col4 = st.columns(4)
 
@@ -76,21 +70,17 @@ col2.metric("⚠️ Unknown Defects", unknown)
 col3.metric("✅ Passed Items", passed)
 col4.metric("⚙️ Processed", processed)
 
-
 st.divider()
 
-
 # =========================
-# MAIN LAYOUT (FACTORY STYLE)
+# MAIN LAYOUT
 # =========================
 left, center, right = st.columns([1, 3, 1])
 
-
 # =========================
-# LEFT PANEL (STATUS)
+# LEFT PANEL
 # =========================
 with left:
-
     st.subheader("📊 System Status")
 
     st.write("Mode:", mode)
@@ -98,13 +88,11 @@ with left:
     st.write("Zone:", zone)
 
     st.write("---")
-
     st.subheader("📡 Live Signals")
 
     st.success("Encoder: ACTIVE")
     st.success("YOLO: RUNNING")
     st.success("PatchCore: RUNNING")
-
 
 # =========================
 # CENTER PANEL (CONVEYOR)
@@ -123,17 +111,28 @@ with center:
     ax.hlines(50, 0, 600, linewidth=6)
     ax.axvline(zone, linestyle="--", color="red")
 
+    # move conveyor
     encoder_move(st.session_state.items, speed=speed)
 
+    # process items safely
     for item in st.session_state.items:
 
         if check_trigger(item, zone) and item.result is None:
-            item.result = run_pipeline(item.image)
+            try:
+                item.result = run_pipeline(item.image)
+            except Exception as e:
+                item.result = {
+                    "yolo": [],
+                    "anomaly": [],
+                    "unknown": [],
+                    "error": str(e)
+                }
 
+        # visualization color logic
         color = "blue"
 
         if item.result:
-            if len(item.result["unknown"]) > 0:
+            if len(item.result.get("unknown", [])) > 0:
                 color = "red"
             else:
                 color = "green"
@@ -144,9 +143,8 @@ with center:
     with placeholder:
         st.pyplot(fig)
 
-
 # =========================
-# RIGHT PANEL (INSPECTION RESULTS)
+# RIGHT PANEL
 # =========================
 with right:
 
@@ -161,19 +159,20 @@ with right:
 
     if latest:
 
-        st.write("YOLO detections:", len(latest["yolo"]))
-        st.write("Anomalies:", len(latest["anomaly"]))
-        st.write("Unknown defects:", len(latest["unknown"]))
+        st.write("YOLO detections:", len(latest.get("yolo", [])))
+        st.write("Anomalies:", len(latest.get("anomaly", [])))
+        st.write("Unknown defects:", len(latest.get("unknown", [])))
+
+        if "error" in latest:
+            st.error(latest["error"])
 
     else:
         st.info("No inspection yet")
 
-
 # =========================
-# BOTTOM LOG TABLE
+# LOG TABLE
 # =========================
 st.divider()
-
 st.subheader("📋 Inspection Log")
 
 log_data = []
@@ -184,9 +183,9 @@ for item in st.session_state.items:
 
         log_data.append({
             "ID": item.idx,
-            "YOLO": len(item.result["yolo"]),
-            "Anomaly": len(item.result["anomaly"]),
-            "Unknown": len(item.result["unknown"]),
+            "YOLO": len(item.result.get("yolo", [])),
+            "Anomaly": len(item.result.get("anomaly", [])),
+            "Unknown": len(item.result.get("unknown", [])),
             "X Position": item.x
         })
 
