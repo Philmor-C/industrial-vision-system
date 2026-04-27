@@ -1,9 +1,15 @@
 import torch
 import numpy as np
 import torch.nn.functional as F
+from huggingface_hub import hf_hub_download
 
+
+model_path = hf_hub_download(
+    repo_id="yourname/patchcore-industrial",
+    filename="patchcore_demo.pth"
+)
 # Load checkpoint
-checkpoint = torch.load("models/patchcore.pth", map_location="cpu")
+checkpoint = torch.load(model_path, map_location="cpu")
 
 memory_bank = checkpoint["memory_bank"]
 threshold = checkpoint["threshold"]
