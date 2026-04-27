@@ -1,37 +1,34 @@
-def iou(a, b):
-    x1,y1,x2,y2 = a
-    x3,y3,x4,y4 = b
+def iou(box1, box2):
 
-    xa = max(x1, x3)
-    ya = max(y1, y3)
-    xb = min(x2, x4)
-    yb = min(y2, y4)
+    x1 = max(box1[0], box2[0])
+    y1 = max(box1[1], box2[1])
+    x2 = min(box1[2], box2[2])
+    y2 = min(box1[3], box2[3])
 
-    inter = max(0, xb-xa) * max(0, yb-ya)
+    inter = max(0, x2-x1) * max(0, y2-y1)
 
-    area1 = (x2-x1)*(y2-y1)
-    area2 = (x4-x3)*(y4-y3)
+    a1 = (box1[2]-box1[0]) * (box1[3]-box1[1])
+    a2 = (box2[2]-box2[0]) * (box2[3]-box2[1])
 
-    return inter / (area1 + area2 - inter + 1e-6)
+    return inter / (a1 + a2 - inter + 1e-6)
 
 
-def fuse(yolo_boxes, anomaly_boxes, thresh=0.3):
+def fuse(yolo_boxes, anomaly_boxes, thr=0.2):
 
     matched = []
     unknown = []
 
-    for ab in anomaly_boxes:
+    for a in anomaly_boxes:
+
         found = False
 
-        for yb in yolo_boxes:
-            y_box = (yb[0], yb[1], yb[2], yb[3])
-
-            if iou(ab, y_box) > thresh:
-                matched.append((yb, ab))
+        for y in yolo_boxes:
+            if iou(a, y) > thr:
+                matched.append((a, y))
                 found = True
                 break
 
         if not found:
-            unknown.append(ab)
+            unknown.append(a)
 
     return matched, unknown
