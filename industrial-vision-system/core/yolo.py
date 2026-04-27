@@ -1,9 +1,4 @@
-try:
-    from ultralytics import YOLO
-except Exception as e:
-    raise RuntimeError(
-        "YOLO failed to import. This is usually a missing libGL issue."
-    ) from e
+from ultralytics import YOLO
 from huggingface_hub import hf_hub_download
 
 
