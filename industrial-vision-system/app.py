@@ -12,55 +12,60 @@ st.set_page_config(layout="wide")
 st.title("🏭 Industrial Vision System")
 
 # -------------------
-# LOAD MODELS
+# SAFE LOAD MODELS
 # -------------------
 @st.cache_resource
 def load_models():
     yolo = load_yolo()
     memory_bank, threshold = load_patchcore()
-    return yolo, memory_bank, threshold
 
-yolo_model, memory_bank, threshold = load_models()
+    backbone = None   # optional placeholder if you use resnet
+
+    return yolo, backbone, memory_bank, threshold
+
+
+yolo_model, backbone, memory_bank, threshold = load_models()
 
 # -------------------
-# LOAD IMAGES
+# IMAGES
 # -------------------
 images = glob.glob("data/test_images/*.jpg")
 
-# -------------------
-# SAFE SESSION STATE (FIXED)
-# -------------------
-if "conveyor_items" not in st.session_state:
+if len(images) == 0:
+    st.error("No images found in data/test_images")
+    st.stop()
 
-    st.session_state.conveyor_items = [
+if "items" not in st.session_state:
+    st.session_state.items = [
         ConveyorItem(i, Image.open(img).convert("RGB"))
         for i, img in enumerate(images)
     ]
 
 # -------------------
-# SIDEBAR
+# CONTROLS
 # -------------------
 speed = st.sidebar.slider("Speed", 1, 20, 5)
 zone = st.sidebar.slider("Zone", 100, 400, 250)
 
 # -------------------
-# KPI (FIXED SAFE VERSION)
+# KPI SAFE FIX
 # -------------------
-items = st.session_state.conveyor_items   # 🔥 FIX: no more .items()
+total = len(st.session_state.items)
 
-total = len(items)
-
-processed = sum(1 for i in items if i.result)
+processed = sum(
+    1 for i in st.session_state.items
+    if getattr(i, "result", None)
+)
 
 unknown = sum(
     len(i.result["unknown"])
-    for i in items
-    if i.result
+    for i in st.session_state.items
+    if getattr(i, "result", None)
 )
 
 passed = sum(
-    1 for i in items
-    if i.result and len(i.result["unknown"]) == 0
+    1 for i in st.session_state.items
+    if getattr(i, "result", None) and len(i.result["unknown"]) == 0
 )
 
 col1, col2, col3, col4 = st.columns(4)
@@ -72,59 +77,55 @@ col4.metric("Processed", processed)
 st.divider()
 
 # -------------------
-# CONVEYOR VISUAL
+# CONVEYOR LOOP
 # -------------------
-left, center, right = st.columns([1, 3, 1])
+fig, ax = plt.subplots(figsize=(10,3))
 
-with center:
+ax.set_xlim(0,600)
+ax.set_ylim(0,100)
 
-    fig, ax = plt.subplots(figsize=(10, 3))
+ax.hlines(50,0,600,linewidth=6)
+ax.axvline(zone,color="red",linestyle="--")
 
-    ax.set_xlim(0, 600)
-    ax.set_ylim(0, 100)
+encoder_move(st.session_state.items, speed)
 
-    ax.hlines(50, 0, 600, linewidth=6)
-    ax.axvline(zone, color="red", linestyle="--")
+for item in st.session_state.items:
 
-    encoder_move(items, speed)
+    if check_trigger(item, zone) and item.result is None:
 
-    for item in items:
+        item.result = run_pipeline(
+            item.image,
+            yolo_model,
+            backbone,
+            memory_bank
+        )
 
-        if check_trigger(item, zone) and item.result is None:
-            item.result = run_pipeline(
-                item.image,
-                yolo_model,
-                None,
-                memory_bank
-            )
+    color = "blue"
 
-        color = "blue"
+    if item.result:
+        color = "red" if len(item.result["unknown"]) > 0 else "green"
 
-        if item.result:
-            if len(item.result["unknown"]) > 0:
-                color = "red"
-            else:
-                color = "green"
+    ax.scatter(item.x, 50, s=150, color=color)
 
-        ax.scatter(item.x, 50, s=150, color=color)
-
-    st.pyplot(fig)
+st.pyplot(fig)
 
 # -------------------
-# LOG TABLE
+# LOG
 # -------------------
 st.divider()
 st.subheader("Inspection Log")
 
 log = []
 
-for i in items:
-    if i.result:
+for i in st.session_state.items:
+    if getattr(i, "result", None):
+
         log.append({
             "ID": i.idx,
             "YOLO": len(i.result["yolo"]),
             "Anomaly": len(i.result["anomaly"]),
-            "Unknown": len(i.result["unknown"])
+            "Unknown": len(i.result["unknown"]),
+            "Score": i.result.get("score", 0)
         })
 
 st.dataframe(log)
