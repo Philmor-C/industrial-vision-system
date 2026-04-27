@@ -7,7 +7,7 @@ DEVICE = "cpu"
 
 def load_patchcore():
 
-    path = hf_hub_download("Filiyo/patchcore", "patchcore_demo.pth")
+    path = hf_hub_download("Filiyo/patchcore", "patchcore.pth")
 
     data = torch.load(path, map_location=DEVICE)
 
