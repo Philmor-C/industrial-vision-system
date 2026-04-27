@@ -1,27 +1,28 @@
-import torch
+from ultralytics import YOLO
 from huggingface_hub import hf_hub_download
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-
 def load_yolo():
+    # download model from HuggingFace
     path = hf_hub_download("Filiyo/yolo", "yolo.pt")
-    model = torch.load(path, map_location=DEVICE)
-    model.eval()
+  
+    model = YOLO(path)
+
     return model
 
 
 def run_yolo(image, model):
-    # image: PIL or tensor
+
     results = model(image)
 
     boxes = []
 
-    try:
-        for r in results:
-            for b in r.boxes.xyxy.cpu().numpy():
-                x1, y1, x2, y2 = b
-                boxes.append((x1, y1, x2, y2))
-    except:
-        pass
+    for r in results:
+
+        if r.boxes is None:
+            continue
+
+        for b in r.boxes.xyxy.cpu().numpy():
+            x1, y1, x2, y2 = b
+            boxes.append((float(x1), float(y1), float(x2), float(y2)))
 
     return boxes
