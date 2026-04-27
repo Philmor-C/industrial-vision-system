@@ -1,46 +1,34 @@
 import torch
-import numpy as np
 import torch.nn.functional as F
 from huggingface_hub import hf_hub_download
 
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-model_path = hf_hub_download(
-    repo_id="filiyo/patchcore",
-    filename="patchcore.pth"    
-)
-# Load checkpoint
-checkpoint = torch.load(model_path, map_location="cpu")
+def load_patchcore():
+    path = hf_hub_download("Filiyo/patchcore", "patchcore.pth")
+    data = torch.load(path, map_location=DEVICE)
 
-memory_bank = checkpoint["memory_bank"]
-threshold = checkpoint["threshold"]
+    memory_bank = data["memory_bank"].to(DEVICE)
+    threshold = data["threshold"]
 
-def run_patchcore(image, backbone):
-    """
-    image: tensor [1,3,H,W]
-    backbone: feature extractor model
-    """
+    return memory_bank, threshold
 
-    with torch.no_grad():
-        features = backbone(image)
 
-        # distance to memory bank
-        distances = torch.cdist(features, memory_bank)
-        dist_score, _ = torch.min(distances, dim=1)
+def run_patchcore(image, backbone, memory_bank):
+    features = backbone(image)
 
-        # image-level anomaly score
-        score = torch.max(dist_score)
+    dist = torch.cdist(features, memory_bank)
+    dist_score, _ = torch.min(dist, dim=1)
 
-        # heatmap (patch-level)
-        heatmap = dist_score.view(1, 1, 28, 28)
+    score = torch.max(dist_score)
 
-        heatmap = F.interpolate(
-            heatmap,
-            size=(224, 224),
-            mode="bilinear",
-            align_corners=False
-        )
+    heatmap = dist_score.view(1,1,28,28)
 
-    heatmap = heatmap.squeeze().cpu().numpy()
-    score = score.item()
+    heatmap = F.interpolate(
+        heatmap,
+        size=(224,224),
+        mode="bilinear",
+        align_corners=False
+    )
 
-    return heatmap, score, threshold
+    return heatmap.squeeze().detach().cpu().numpy(), score.item()
